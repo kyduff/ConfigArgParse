@@ -301,8 +301,22 @@ class YAMLConfigFileParser(ConfigFileParser):
         # see ConfigFileParser.parse docstring
         yaml = self._load_yaml()
 
+        class YAMLLoader(yaml.SafeLoader):
+
+            def __init__(self, stream):
+                self._root = os.path.split(stream.name)[0]
+                super(YAMLLoader, self).__init__(stream)
+
+            def include(self, node):
+                filename = os.path.join(self._root, self.construct_scalar(node))
+
+                with open(filename, 'r') as f:
+                    return yaml.load(f, YAMLLoader)
+        
+        YAMLLoader.add_constructor('!include', YAMLLoader.include)
+
         try:
-            parsed_obj = yaml.safe_load(stream)
+            parsed_obj = yaml.load(stream, YAMLLoader)
         except Exception as e:
             raise ConfigFileParserException("Couldn't parse config file: %s" % e)
 
